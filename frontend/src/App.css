@@ -1,0 +1,172 @@
+.app {
+  padding: 2rem;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.app-header {
+  margin-bottom: 2rem;
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.app-header h1 {
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tabs button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #e9ecef;
+  color: #495057;
+  transition: all 0.2s;
+}
+
+.tabs button.active {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.app-main {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.content-area {
+  flex: 1;
+  min-width: 300px;
+}
+
+.requests-list {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.request-card {
+  background: white;
+  padding: 1.25rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.request-card:hover {
+  transform: translateY(-2px);
+}
+
+.request-card.selected {
+  border: 2px solid #0d6efd;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.request-card.pending .status-badge {
+  background-color: #ffd700;
+  color: #000;
+}
+
+.request-card.resolved .status-badge {
+  background-color: #198754;
+  color: white;
+}
+
+.request-card.unresolved .status-badge {
+  background-color: #dc3545;
+  color: white;
+}
+
+.response-form {
+  width: 350px;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 2rem;
+}
+
+.response-form textarea {
+  width: 100%;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.submit-button {
+  flex: 2;
+  background: #0d6efd;
+  color: white;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.submit-button:hover {
+  background: #0b5ed7;
+}
+
+.cancel-button {
+  flex: 1;
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-button:hover {
+  background: #bb2d3b;
+}
+
+.phone {
+  color: #6c757d;
+  font-size: 0.875rem;
+  margin: 0.5rem 0;
+}
+
+.question {
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.response {
+  background: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-top: 0.75rem;
+}
+
+.response-time {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 0.5rem;
+}

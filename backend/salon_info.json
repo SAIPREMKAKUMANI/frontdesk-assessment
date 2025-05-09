@@ -1,0 +1,29 @@
+{
+    "name": "StyleHub Salon",
+    "address": "123 Beauty Lane, Fashion City",
+    "hours": {
+        "monday": "9:00 AM - 6:00 PM",
+        "tuesday": "9:00 AM - 6:00 PM",
+        "wednesday": "9:00 AM - 6:00 PM",
+        "thursday": "9:00 AM - 8:00 PM",
+        "friday": "9:00 AM - 8:00 PM",
+        "saturday": "10:00 AM - 5:00 PM",
+        "sunday": "Closed"
+    },
+    "services": [
+        {"name": "Haircut", "price": "$45-$65"},
+        {"name": "Color", "price": "$85-$150"},
+        {"name": "Styling", "price": "$35-$55"},
+        {"name": "Treatments", "price": "$25-$95"}
+    ],
+    "staff": [
+        {"name": "Alex", "specialties": ["Cuts", "Color"]},
+        {"name": "Jordan", "specialties": ["Styling", "Treatments"]},
+        {"name": "Taylor", "specialties": ["Color", "Extensions"]}
+    ],
+    "policies": {
+        "cancellation": "24 hour notice required",
+        "late": "15 minute grace period",
+        "payment": "All major credit cards accepted"
+    }
+}
