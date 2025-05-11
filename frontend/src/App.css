@@ -170,3 +170,29 @@
   color: #6c757d;
   margin-top: 0.5rem;
 }
+
+.knowledge-item {
+    padding: 15px;
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+.knowledge-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.knowledge-answer {
+    margin: 10px 0;
+}
+
+.knowledge-meta {
+    display: flex;
+    gap: 15px;
+    color: #666;
+    font-size: 0.9em;
+}

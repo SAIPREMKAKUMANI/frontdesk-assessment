@@ -1,7 +1,6 @@
 import React,{ useState, useEffect } from 'react';
 import './App.css';
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import { socketService } from './services/socketService';
 
 function App() {
   const [activeTab, setActiveTab] = useState('pending');
@@ -14,8 +13,12 @@ function App() {
 
   // Fetch requests based on active tab
   useEffect(() => {
-    fetchRequests();
     console.log(`Fetching requests for tab: ${activeTab}`);
+    if (activeTab !== 'knowledge') {
+        fetchRequests();
+    }else{
+        fetchKnowledgeBase();
+    }
 
     // Reload data every 30 seconds
     const interval = setInterval(fetchRequests, 30000);
@@ -23,31 +26,17 @@ function App() {
     return () => clearInterval(interval);
   }, [activeTab]);
 
-  // Fetch knowledge base
   useEffect(() => {
-    if (activeTab === 'knowledge') {
-      fetchKnowledgeBase();
-    }
-  }, [activeTab]);
+        return () => {
+            socketService.disconnect();
+        };
+    }, []);
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      let url = `${API_BASE_URL}/help-requests`;
-
-      // Add filter if not viewing all requests
-      if (activeTab !== 'all') {
-        url += `?status=${activeTab}`;
-      }
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch requests');
-      }
-
-      const data = await response.json();
-      setRequests(data);
+      const requests = await socketService.getHelpRequests(activeTab !== 'all' ? activeTab : null);
+      setRequests(requests);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -59,14 +48,8 @@ function App() {
   const fetchKnowledgeBase = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/knowledge-base`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch knowledge base');
-      }
-
-      const data = await response.json();
-      setKnowledge(data);
+      const items = await socketService.getKnowledgeBase();
+      setKnowledge(items);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -80,28 +63,18 @@ function App() {
       alert('Please enter a response');
       return;
     }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/help-requests/${requestId}/respond`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({response: responseText}),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit response');
+      const result = await socketService.respondToRequest(requestId, responseText);
+      if (result.success) {
+        // Reset response text and selected request
+        setResponseText('');
+        setSelectedRequest(null);
+        // Refresh the requests list
+        fetchRequests();
+        alert('Response submitted successfully! The customer will be notified.');
+      } else {
+        throw new Error(result.message || 'Failed to submit response');
       }
-
-      // Reset response text and selected request
-      setResponseText('');
-      setSelectedRequest(null);
-
-      // Refresh the requests list
-      fetchRequests();
-
-      alert('Response submitted successfully! The customer will be notified.');
     } catch (err) {
       setError(err.message);
       alert(`Error: ${err.message}`);
@@ -206,9 +179,29 @@ function App() {
     return (
         <div className="knowledge-list">
           <h2>Learned Answers</h2>
+            {knowledge.map((item) => (
+                <div key={item.id} className="knowledge-item">
+                    <div className="knowledge-header">
+                        <h3>Question: {item.question}</h3>
+                        <span className="timestamp">Created: {item.createdAt}</span>
+                    </div>
+                    <div className="knowledge-answer">
+                        <p><strong>Answer:</strong> {item.answer}</p>
+                    </div>
+                </div>
+            ))}
         </div>
     )
   }
+
+  const handleCall = async (phone, question) => {
+        try {
+            const response = await socketService.simulateCall(phone, question);
+            console.log('Call response:', response);
+        } catch (error) {
+            console.error('Error during call:', error);
+        }
+    };
 
   return (
     <div className="app">

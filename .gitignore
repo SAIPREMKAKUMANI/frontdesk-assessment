@@ -8,6 +8,13 @@
 backend/.venv
 frontend/node_modules
 .idea
+backend/.env
+backend/serviceAccountKey.json
+backend/__pycache__/
+
+# Remove the specific file from staging area
+git restore --staged "backend/__pycache__/ai_agent.cpython-312.pyc"
+
 # testing
 /coverage
 

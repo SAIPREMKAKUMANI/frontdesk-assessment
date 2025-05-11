@@ -3,15 +3,18 @@ import threading
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 import logging
 from datetime import datetime,timedelta,timezone
 import time
 # Import our AI agent
 from ai_agent import AIAgent, db
+from google.cloud.firestore_v1._helpers import DatetimeWithNanoseconds
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +22,14 @@ logger = logging.getLogger(__name__)
 
 # Initialize AI agent
 ai_agent = AIAgent()
+
+@socketio.on('connect')
+def handle_connect():
+    logger.info("Client connected")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.info("Client disconnected")
 
 # Start timeout checker background task
 def check_request_timeouts():
@@ -57,7 +68,7 @@ def check_request_timeouts():
 timeout_thread = threading.Thread(target=check_request_timeouts, daemon=True)
 timeout_thread.start()
 
-@app.route('/api/simulate-call', methods=['POST'])
+@socketio.on('simulate_call')
 def simulate_call():
     """Endpoint to simulate a customer call"""
     data = request.json
@@ -71,12 +82,12 @@ def simulate_call():
     # Process the call with our AI agent
     result = ai_agent.process_call(customer_phone, customer_question)
 
-    return jsonify(result)
+    emit('call_response', result)
 
-@app.route('/api/help-requests', methods=['GET'])
-def get_help_requests():
+@socketio.on('get_help_requests')
+def get_help_requests(data):
     """Get all help requests with optional filtering"""
-    status = request.args.get('status', None)
+    status = data.get('status',None) if data else None
 
     query = db.collection('help_requests')
 
@@ -102,26 +113,31 @@ def get_help_requests():
         reverse=True
     )
 
+    def serialize_firestore_data(data):
+        for key, value in data.items():
+            if isinstance(value, DatetimeWithNanoseconds):
+                data[key] = value.strftime('%Y-%m-%d %H:%M:%S')
+        return data
+
     # Convert to list of dictionaries
     requests = []
     for doc in sorted_docs:
         request_data = doc.to_dict()
-        # Convert timestamps to strings for JSON serialization
-        if 'timestamp' in request_data:
-            request_data['timestamp'] = request_data['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-        if 'respondedAt' in request_data and request_data['respondedAt']:
-            request_data['respondedAt'] = request_data['respondedAt'].strftime('%Y-%m-%d %H:%M:%S')
-        if 'followupTimestamp' in request_data and request_data['followupTimestamp']:
-            request_data['followupTimestamp'] = request_data['followupTimestamp'].strftime('%Y-%m-%d %H:%M:%S')
-
+        request_data = serialize_firestore_data(request_data)
         request_data['id'] = doc.id
         requests.append(request_data)
     logger.info(f"Found {len(requests)} help requests")
-    return jsonify(requests)
 
-@app.route('/api/help-requests/<request_id>', methods=['GET'])
-def get_help_request(request_id):
+    emit('help_requests', requests)
+
+@socketio.on('get_help_request')
+def get_help_request(data):
     """Get a specific help request by ID"""
+    if not data or 'request_id' not in data:
+        emit('error', {'message': 'Missing request ID'})
+        return
+
+    request_id = data['request_id']
     doc = db.collection('help_requests').document(request_id).get()
 
     if not doc.exists:
@@ -130,37 +146,38 @@ def get_help_request(request_id):
     request_data = doc.to_dict()
     # Convert timestamps to strings for JSON serialization
     if 'timestamp' in request_data:
-        request_data['timestamp'] = request_data['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        request_data['timestamp'] = str(request_data['timestamp'].strftime('%Y-%m-%d %H:%M:%S'))
     if 'respondedAt' in request_data and request_data['respondedAt']:
-        request_data['respondedAt'] = request_data['respondedAt'].strftime('%Y-%m-%d %H:%M:%S')
+        request_data['respondedAt'] = str(request_data['respondedAt'].strftime('%Y-%m-%d %H:%M:%S'))
     if 'followupTimestamp' in request_data and request_data['followupTimestamp']:
-        request_data['followupTimestamp'] = request_data['followupTimestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        request_data['followupTimestamp'] = str(request_data['followupTimestamp'].strftime('%Y-%m-%d %H:%M:%S'))
 
     request_data['id'] = doc.id
 
-    return jsonify(request_data)
+    emit('help_request', request_data)
 
-@app.route('/api/help-requests/<request_id>/respond', methods=['POST'])
-def respond_to_request(request_id):
+@socketio.on('respond_to_request')
+def respond_to_request(data):
     """Endpoint for supervisor to respond to a help request"""
-    data = request.json
-
-    if not data or 'response' not in data:
-        return jsonify({'error': 'Missing response text'}), 400
+    if not data or 'request_id' not in data or 'response' not in data:
+        emit('error', {'message': 'Missing required fields'})
+        return
 
     response_text = data['response']
+    request_id = data['request_id']
 
     # Get the request document
     request_ref = db.collection('help_requests').document(request_id)
     request_doc = request_ref.get()
 
     if not request_doc.exists:
-        return jsonify({'error': 'Request not found'}), 404
+        emit('error', {'message': 'Request not found'})
 
     request_data = request_doc.to_dict()
 
     if request_data['status'] != 'pending':
-        return jsonify({'error': 'Request already processed'}), 400
+        emit('error', {'message': 'Request already processed'})
+        return
 
     # Update the request with supervisor's response
     request_ref.update({
@@ -172,57 +189,38 @@ def respond_to_request(request_id):
     # Follow up with customer
     ai_agent.follow_up_with_customer(request_id, response_text)
 
-    return jsonify({'success': True, 'message': 'Response sent and customer notified'})
-
-@app.route('/api/knowledge-base', methods=['GET'])
-def get_knowledge_base():
-    """Get all knowledge base entries"""
-    # Query knowledge base
-    docs = db.collection('knowledge_base').order_by('createdAt', direction='DESCENDING').stream()
-
-    # Convert to list of dictionaries
-    kb_items = []
-    for doc in docs:
-        kb_data = doc.to_dict()
-        # Convert timestamps to strings for JSON serialization
-        if 'createdAt' in kb_data:
-            kb_data['createdAt'] = kb_data['createdAt'].strftime('%Y-%m-%d %H:%M:%S')
-        if 'lastUsedAt' in kb_data:
-            kb_data['lastUsedAt'] = kb_data['lastUsedAt'].strftime('%Y-%m-%d %H:%M:%S')
-
-        kb_data['id'] = doc.id
-        kb_items.append(kb_data)
-
-    return jsonify(kb_items)
-
-@app.route('/api/livekit/token', methods=['POST'])
-def create_livekit_token():
-    """Create a LiveKit token for a participant"""
-    data = request.json
-
-    if not data or 'phone' not in data:
-        return jsonify({'error': 'Missing required fields'}), 400
-
-    customer_phone = data['phone']
-
-    # Create a LiveKit room
-    room_name = ai_agent.create_livekit_room(customer_phone)
-
-    if not room_name:
-        return jsonify({'error': 'Failed to create LiveKit room'}), 500
-
-    # In a real implementation, we would create a token here
-    # For the sake of this example, we'll return a simulated token
-    return jsonify({
-        'room': room_name,
-        'token': f"simulated_token_{room_name}",
-        'message': 'In a real implementation, this would be a valid LiveKit token'
+    emit('response_success', {
+        'success': True,
+        'message': 'Response sent and customer notified'
     })
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Simple health check endpoint"""
-    return jsonify({'status': 'ok', 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
+@socketio.on('get_knowledge_base')
+def get_knowledge_base():
+    """Get all knowledge base entries"""
+    logger.info("Entered get_knowledge_base")
+    try:
+        # Query knowledge base
+        docs = db.collection('knowledge_base').order_by('createdAt', direction='DESCENDING').stream()
+
+        # Convert to list of dictionaries
+        kb_items = []
+        for doc in docs:
+            kb_data = doc.to_dict()
+            # Convert timestamps to strings for JSON serialization
+            if 'createdAt' in kb_data:
+                kb_data['createdAt'] = kb_data['createdAt'].strftime('%Y-%m-%d %H:%M:%S')
+            if 'lastUsedAt' in kb_data:
+                kb_data['lastUsedAt'] = kb_data['lastUsedAt'].strftime('%Y-%m-%d %H:%M:%S')
+
+            kb_data['id'] = doc.id
+            logger.info('Knowledge Base Doc ID: {}'.format(kb_data['id']))
+            kb_items.append(kb_data)
+
+        logger.info(f"Found {len(kb_items)} knowledge base entries")
+        emit('knowledge_base', kb_items)
+    except Exception as e:
+        logger.error(e)
+        emit('error', {'message': f'Error fetching knowledge base: {str(e)}'})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
