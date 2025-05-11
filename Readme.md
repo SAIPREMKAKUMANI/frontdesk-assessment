@@ -45,7 +45,6 @@
     "responseText": "string|null",
     "respondedAt": "datetime|null",
     "followupSent": "boolean",
-    "followupTimestamp": "datetime|null"
   }
 }
 ```
