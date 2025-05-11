@@ -56,7 +56,6 @@
     "question": "string",
     "answer": "string",
     "createdAt": "datetime",
-    "lastUsedAt": "datetime",
     "originatingRequestId": "string"
   }
 }
