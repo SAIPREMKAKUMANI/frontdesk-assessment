@@ -1,0 +1,9 @@
+firebase-admin~=6.8.0
+langchain-core~=0.3.59
+livekit~=1.0.6
+dotenv~=0.9.9
+python-dotenv~=1.1.0
+Flask~=3.1.0
+flask-cors~=5.0.1
+Flask-SocketIO~=5.5.1
+protobuf~=5.29.4
